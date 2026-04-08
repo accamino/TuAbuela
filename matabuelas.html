@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Matabuelas - Ciudad Pietroshka</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin:0; overflow:hidden; font-family:Arial; background:black; }
+#ui {
+ position:fixed;
+ top:10px;
+ left:10px;
+ color:white;
+ background:rgba(0,0,0,0.65);
+ padding:12px;
+ border-radius:10px;
+ z-index:10;
+}
+#crosshair{
+ position:fixed;
+ top:50%;
+ left:50%;
+ width:10px;
+ height:10px;
+ margin-left:-5px;
+ margin-top:-5px;
+ background:white;
+ border-radius:50%;
+ z-index:10;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+<h2>MATABUELAS</h2>
+<div>Mapa: Ciudad Pietroshka</div>
+<div>Vida: <span id="hp">100</span></div>
+<div>Kills: <span id="score">0</span></div>
+<div>Click para activar cámara</div>
+<div>WASD mover | Mouse mirar | Click disparar</div>
+</div>
+
+<div id="crosshair"></div>
+
+<!-- VERSION COMPATIBLE CON HTML PURO (NO TSX) -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/controls/PointerLockControls.js"></script>
+
+<script>
+
+if(typeof THREE === "undefined"){
+ alert("Error cargando Three.js. Verifica conexión a internet.");
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// luz
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(30,40,20);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+
+// controles fps
+const controls = new THREE.PointerLockControls(camera, document.body);
+scene.add(controls.getObject());
+
+// activar camara
+window.addEventListener("click",()=>{
+ controls.lock();
+ disparar();
+});
+
+// suelo
+const ground = new THREE.Mesh(
+ new THREE.PlaneGeometry(600,600),
+ new THREE.MeshStandardMaterial({color:0x3cb043})
+);
+
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+// ciudad estilo pleasant park
+function casa(x,z){
+ const base = new THREE.Mesh(
+  new THREE.BoxGeometry(8,5,8),
+  new THREE.MeshStandardMaterial({color:0xffffff})
+ );
+ base.position.set(x,2.5,z);
+ scene.add(base);
+
+ const roof = new THREE.Mesh(
+  new THREE.ConeGeometry(6,3,4),
+  new THREE.MeshStandardMaterial({color:0xaa0000})
+ );
+ roof.position.set(x,6,z);
+ roof.rotation.y = Math.PI/4;
+ scene.add(roof);
+}
+
+for(let x=-80;x<=80;x+=25){
+ for(let z=-80;z<=80;z+=25){
+  casa(x,z);
+ }
+}
+
+// enemigos
+const enemies = [];
+
+function crearAbuela(){
+ const g = new THREE.Group();
+
+ const cuerpo = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.7,1,2.2,12),
+  new THREE.MeshStandardMaterial({color:0xff99cc})
+ );
+ cuerpo.position.y = 1.1;
+ g.add(cuerpo);
+
+ const cabeza = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5,12,12),
+  new THREE.MeshStandardMaterial({color:0xffe0bd})
+ );
+ cabeza.position.y = 2.5;
+ g.add(cabeza);
+
+ const pelo = new THREE.Mesh(
+  new THREE.SphereGeometry(0.55,12,12),
+  new THREE.MeshStandardMaterial({color:0xdddddd})
+ );
+ pelo.position.y = 2.7;
+ g.add(pelo);
+
+ g.position.set(
+  (Math.random()-0.5)*150,
+  0,
+  (Math.random()-0.5)*150
+ );
+
+ scene.add(g);
+ enemies.push(g);
+}
+
+setInterval(crearAbuela,3000);
+
+// disparo
+const raycaster = new THREE.Raycaster();
+let score = 0;
+let hp = 100;
+
+function disparar(){
+ raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+
+ const parts = [];
+ enemies.forEach(e=>parts.push(...e.children));
+
+ const hits = raycaster.intersectObjects(parts);
+
+ if(hits.length>0){
+  const enemy = hits[0].object.parent;
+
+  scene.remove(enemy);
+  enemies.splice(enemies.indexOf(enemy),1);
+
+  score++;
+  document.getElementById("score").textContent = score;
+ }
+}
+
+// movimiento
+const keys = {};
+
+window.addEventListener("keydown", e=> keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e=> keys[e.key.toLowerCase()] = false);
+
+function mover(){
+ if(keys["w"]) controls.moveForward(0.18);
+ if(keys["s"]) controls.moveForward(-0.18);
+ if(keys["a"]) controls.moveRight(-0.18);
+ if(keys["d"]) controls.moveRight(0.18);
+}
+
+// IA
+function enemigosIA(){
+ enemies.forEach(e=>{
+  e.lookAt(camera.position);
+
+  e.position.x += (camera.position.x - e.position.x)*0.012;
+  e.position.z += (camera.position.z - e.position.z)*0.012;
+
+  if(e.position.distanceTo(camera.position) < 1.6){
+   hp -= 0.25;
+
+   if(hp < 0) hp = 0;
+
+   document.getElementById("hp").textContent = Math.floor(hp);
+  }
+ });
+}
+
+function loop(){
+ requestAnimationFrame(loop);
+
+ mover();
+ enemigosIA();
+
+ renderer.render(scene,camera);
+}
+
+loop();
+
+window.addEventListener("resize",()=>{
+ camera.aspect = window.innerWidth/window.innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// TESTS
+console.assert(typeof THREE === "object","Three cargado correctamente");
+console.assert(typeof scene === "object","Scene creada");
+console.assert(typeof controls === "object","Controles creados");
+console.assert(Array.isArray(enemies),"Array enemigos valido");
+console.assert(typeof disparar === "function","Funcion disparar existe");
+
+</script>
+
+</body>
+</html>
