@@ -70,6 +70,9 @@ scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
 // controles fps
 const controls = new THREE.PointerLockControls(camera, document.body);
+
+// posicion inicial jugador
+camera.position.set(0,2,10);
 scene.add(controls.getObject());
 
 // activar camara
@@ -79,6 +82,7 @@ window.addEventListener("click",()=>{
 });
 
 // suelo
+// suelo visible
 const ground = new THREE.Mesh(
  new THREE.PlaneGeometry(600,600),
  new THREE.MeshStandardMaterial({color:0x3cb043})
@@ -213,6 +217,21 @@ function loop(){
 
  renderer.render(scene,camera);
 }
+
+// mensaje ayuda inicial
+const msg=document.createElement('div');
+msg.style.position='fixed';
+msg.style.bottom='20px';
+msg.style.left='50%';
+msg.style.transform='translateX(-50%)';
+msg.style.color='white';
+msg.style.background='rgba(0,0,0,0.5)';
+msg.style.padding='8px 14px';
+msg.style.borderRadius='8px';
+msg.innerText='Haz click en la pantalla para empezar';
+document.body.appendChild(msg);
+
+controls.addEventListener('lock',()=>msg.remove());
 
 loop();
 
